@@ -110,3 +110,50 @@ test('pending flush callbacks fail when worker exits', async function () {
 
   await close
 })
+
+test('flush callback keeps an unref\'d worker alive until it runs', async function () {
+  const stream = createStream('flush')
+  await once(stream, 'ready')
+
+  assert.ok(stream.write('hello'))
+  stream.unref()
+
+  await new Promise((resolve, reject) => {
+    stream.flush((err) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      resolve()
+    })
+  })
+
+  const close = once(stream, 'close')
+  stream.end()
+  await close
+})
+
+test('flush callback does not unref a stream the user has ref\'d', async function () {
+  const stream = createStream('flush')
+  await once(stream, 'ready')
+
+  stream.ref()
+  assert.ok(stream.write('hello'))
+
+  await new Promise((resolve, reject) => {
+    stream.flush((err) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      resolve()
+    })
+  })
+
+  // Drop the explicit ref so the test process can exit.
+  stream.unref()
+
+  const close = once(stream, 'close')
+  stream.end()
+  await close
+})

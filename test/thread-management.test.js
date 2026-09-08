@@ -20,6 +20,26 @@ test('exits with 0', async function (t) {
   assert.strictEqual(data, 'hello world\n')
 })
 
+test('flush callback fires after unref on an idle event loop', async function () {
+  const dest = file()
+  const child = fork(join(__dirname, 'flush-unref-exit.js'), [dest], {
+    silent: true
+  })
+
+  let stdout = ''
+  child.stdout.setEncoding('utf8')
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk
+  })
+
+  const [code] = await once(child, 'exit')
+  assert.strictEqual(code, 0)
+  assert.match(stdout, /CALLBACK/)
+
+  const data = await readFile(dest, 'utf8')
+  assert.strictEqual(data, 'hello world\n')
+})
+
 test('emit error if thread exits', async function (t) {
   const stream = new ThreadStream({
     filename: join(__dirname, 'exit.js'),
